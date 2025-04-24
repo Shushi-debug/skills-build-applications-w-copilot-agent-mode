@@ -1,27 +1,35 @@
 from django.core.management.base import BaseCommand
 from octofit_tracker.models import User, Team, Activity, Leaderboard, Workout
+from octofit_tracker.test_data import get_test_data
 
 class Command(BaseCommand):
     help = 'Populate the database with test data'
 
     def handle(self, *args, **kwargs):
-        # Create test users
-        user1 = User.objects.create(username='john_doe', email='john@example.com', password='password123')
-        user2 = User.objects.create(username='jane_doe', email='jane@example.com', password='password123')
+        test_data = get_test_data()
 
-        # Create test teams
-        team1 = Team.objects.create(name='Team Alpha')
-        team1.members.add(user1, user2)
+        # Populate users
+        for user_data in test_data['users']:
+            User.objects.get_or_create(**user_data)
 
-        # Create test activities
-        Activity.objects.create(user=user1, activity_type='Running', duration=30)
-        Activity.objects.create(user=user2, activity_type='Cycling', duration=45)
+        # Populate teams
+        for team_data in test_data['teams']:
+            members = team_data.pop('members')
+            team, _ = Team.objects.get_or_create(**team_data)
+            team.members.set(User.objects.filter(username__in=members))
 
-        # Create test leaderboard
-        Leaderboard.objects.create(team=team1, score=100)
+        # Populate activities
+        for activity_data in test_data['activities']:
+            user = User.objects.get(username=activity_data.pop('user'))
+            Activity.objects.get_or_create(user=user, **activity_data)
 
-        # Create test workouts
-        Workout.objects.create(name='Push-ups', description='Do 20 push-ups')
-        Workout.objects.create(name='Sit-ups', description='Do 30 sit-ups')
+        # Populate leaderboard
+        for leaderboard_data in test_data['leaderboard']:
+            team = Team.objects.get(name=leaderboard_data.pop('team'))
+            Leaderboard.objects.get_or_create(team=team, **leaderboard_data)
+
+        # Populate workouts
+        for workout_data in test_data['workouts']:
+            Workout.objects.get_or_create(**workout_data)
 
         self.stdout.write(self.style.SUCCESS('Database populated with test data'))
